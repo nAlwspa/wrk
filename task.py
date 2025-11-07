@@ -61,12 +61,11 @@ def display_header():
 
 def auto_detect_and_install():
     """Fungsi otomatis deteksi dan install requirements"""
-    print("\n=== AUTO SYSTEM SETUP ===")
+    print("\n=== AUTO DETECT & INSTALL ===")
     print("🔍 Mendeteksi sistem dan requirements...")
     
     system_info = platform.system()
-    is_android = "ANDROID_ROOT" in os.environ
-    is_termux = system_info == "Linux" and is_android
+    is_termux = system_info == "Linux" and "ANDROID_ROOT" in os.environ
     
     print(f"📱 System: {system_info} {'(Termux Android)' if is_termux else ''}")
     
@@ -75,6 +74,7 @@ def auto_detect_and_install():
     
     if not required_packages:
         print("✅ Semua requirements sudah terpenuhi!")
+        input("\nTekan Enter untuk kembali...")
         return
     
     print("\n📦 Packages yang akan diinstall:")
@@ -90,7 +90,9 @@ def auto_detect_and_install():
         install_detected_packages(required_packages, is_termux)
     else:
         print("❌ Installation dibatalkan.")
-
+    
+    input("\nTekan Enter untuk kembali...")
+    
 def detect_required_packages(is_termux):
     """Deteksi packages yang diperlukan"""
     required = {
@@ -357,26 +359,23 @@ def system_setup_requirements():
             print("  Environment: 📱 Termux Android")
         
         print("\n🔧 MENU SETUP:")
-        print("1. 🚀 Auto System Setup (Recommended)")
+        print("1. 🚀 Auto Detect & Install (Recommended)")
         print("2. 📋 Quick System Check")
-        print("3. 📊 System Information")
-        print("4. 🏠 Kembali ke Menu Utama")
+        print("3. 🏠 Kembali ke Menu Utama")
         
-        choice = input("\nPilih opsi (1-4): ").strip()
+        choice = input("\nPilih opsi (1-3): ").strip()
         
         if choice == "1":
             auto_detect_and_install()
         elif choice == "2":
             quick_system_check()
         elif choice == "3":
-            show_detailed_system_info()
-        elif choice == "4":
             break
         else:
             print("❌ Pilihan tidak valid!")
         
         input("\nTekan Enter untuk lanjut...")
-
+        
 def show_detailed_system_info():
     """Menampilkan informasi sistem detail (simplified)"""
     print("\n=== SYSTEM INFORMATION ===")
