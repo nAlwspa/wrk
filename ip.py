@@ -11,49 +11,50 @@ def validate_ip(ip):
             return False
     return True
 
-def validate_mac(mac):
-    pattern = r'^([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})$'
-    return re.match(pattern, mac) is not None
-
 def ip_lookup():
     while True:
         ip = input("Masukkan IP address: ")
         if validate_ip(ip):
             try:
-                response = requests.get(f"https://iplocation.io/ip/{ip}")
+                response = requests.get(f"https://ipapi.co/{ip}/json/")
                 if response.status_code == 200:
+                    data = response.json()
                     print(f"\nInformasi untuk IP {ip}:")
-                    print(response.text)
+                    print(f"IP: {data.get('ip', 'N/A')}")
+                    print(f"Kota: {data.get('city', 'N/A')}")
+                    print(f"Region: {data.get('region', 'N/A')}")
+                    print(f"Negara: {data.get('country_name', 'N/A')}")
+                    print(f"Kode Negara: {data.get('country_code', 'N/A')}")
+                    print(f"Zona Waktu: {data.get('timezone', 'N/A')}")
+                    print(f"ISP: {data.get('org', 'N/A')}")
+                    print(f"Latitude: {data.get('latitude', 'N/A')}")
+                    print(f"Longitude: {data.get('longitude', 'N/A')}")
+                    
+                    lat = data.get('latitude')
+                    lon = data.get('longitude')
+                    if lat and lon:
+                        maps_url = f"https://maps.google.com/?q={lat},{lon}"
+                        print(f"Google Maps: {maps_url}")
+                    else:
+                        print("Google Maps: Lokasi tidak tersedia")
                 else:
                     print("Gagal mengambil data IP")
-            except:
-                print("Error: Tidak dapat terhubung ke server")
+            except Exception as e:
+                print(f"Error: {e}")
             break
         else:
             print("IP tidak valid, silakan coba lagi")
 
-def mac_lookup():
-    while True:
-        mac = input("Masukkan MAC address: ")
-        if validate_mac(mac):
-            print(f"MAC {mac} valid")
-            break
-        else:
-            print("MAC tidak valid, silakan coba lagi")
-
 def main():
     while True:
         print("\n1. IP Lookup")
-        print("2. MAC Lookup")
-        print("3. Keluar")
+        print("2. Keluar")
         
-        pilihan = input("Pilih menu (1-3): ")
+        pilihan = input("Pilih menu (1-2): ")
         
         if pilihan == '1':
             ip_lookup()
         elif pilihan == '2':
-            mac_lookup()
-        elif pilihan == '3':
             print("Program selesai")
             break
         else:
