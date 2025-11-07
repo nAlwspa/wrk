@@ -1,3 +1,4 @@
+
 import requests
 import re
 
@@ -16,17 +17,17 @@ def ip_lookup():
         ip = input("Masukkan IP address: ")
         if validate_ip(ip):
             try:
-                response = requests.get(f"https://ipapi.co/{ip}/json/")
+                response = requests.get(f"https://api.ip2location.com/v2/?ip={ip}&key=demo&package=WS24")
                 if response.status_code == 200:
                     data = response.json()
                     print(f"\nInformasi untuk IP {ip}:")
                     print(f"IP: {data.get('ip', 'N/A')}")
-                    print(f"Kota: {data.get('city', 'N/A')}")
-                    print(f"Region: {data.get('region', 'N/A')}")
+                    print(f"Kota: {data.get('city_name', 'N/A')}")
+                    print(f"Region: {data.get('region_name', 'N/A')}")
                     print(f"Negara: {data.get('country_name', 'N/A')}")
                     print(f"Kode Negara: {data.get('country_code', 'N/A')}")
-                    print(f"Zona Waktu: {data.get('timezone', 'N/A')}")
-                    print(f"ISP: {data.get('org', 'N/A')}")
+                    print(f"Zona Waktu: {data.get('time_zone', 'N/A')}")
+                    print(f"ISP: {data.get('isp', 'N/A')}")
                     print(f"Latitude: {data.get('latitude', 'N/A')}")
                     print(f"Longitude: {data.get('longitude', 'N/A')}")
                     
