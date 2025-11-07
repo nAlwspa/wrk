@@ -25,95 +25,276 @@ def display_header():
     print(f"Python {sys.version} - {platform.system()}")
     print("=" * 60)
 
-def install_requirements():
-    """Fungsi untuk menginstall requirements"""
-    print("\n=== INSTALL REQUIREMENTS ===")
+def system_setup_requirements():
+    """Fungsi gabungan untuk setup system dan install requirements"""
+    while True:
+        clear_screen()
+        print("\n=== SYSTEM SETUP & REQUIREMENTS ===")
+        
+        # Tampilkan status current requirements
+        print("\n📊 STATUS REQUIREMENTS:")
+        
+        # Cek Python version
+        python_version = sys.version_info
+        python_status = "✅" if python_version >= (3, 6) else "❌"
+        print(f"{python_status} Python {python_version[0]}.{python_version[1]}.{python_version[2]} {'(OK)' if python_version >= (3, 6) else '(Rekomendasi 3.6+)'}")
+        
+        # Cek packages
+        packages_status = {}
+        packages_to_check = [
+            ("requests", "Website checker"),
+            ("colorama", "Warna terminal (opsional)")
+        ]
+        
+        for package, purpose in packages_to_check:
+            try:
+                __import__(package)
+                packages_status[package] = "✅"
+                print(f"✅ {package:15} - OK")
+            except ImportError:
+                packages_status[package] = "❌"
+                print(f"❌ {package:15} - Belum terinstall")
+        
+        print(f"\n💻 Sistem Operasi: {platform.system()} {platform.release()}")
+        
+        # Tampilkan menu options
+        print("\n🔧 MENU SETUP:")
+        print("1. Install All Requirements (Auto)")
+        print("2. Install Requests (Website Checker)")
+        print("3. Install Colorama (Warna Terminal)")
+        print("4. Check System Information")
+        print("5. Test Dependencies")
+        print("6. Kembali ke Menu Utama")
+        
+        choice = input("\nPilih opsi (1-6): ").strip()
+        
+        if choice == "1":
+            install_all_requirements()
+        elif choice == "2":
+            install_specific_package("requests")
+        elif choice == "3":
+            install_specific_package("colorama")
+        elif choice == "4":
+            show_detailed_system_info()
+        elif choice == "5":
+            test_dependencies()
+        elif choice == "6":
+            break
+        else:
+            print("❌ Pilihan tidak valid!")
+        
+        input("\nTekan Enter untuk lanjut...")
+
+def install_all_requirements():
+    """Install semua requirements sekaligus"""
+    print("\n=== INSTALL ALL REQUIREMENTS ===")
     
     requirements = [
-        "requests",
-        "colorama"
+        ("requests", "Untuk website checker"),
+        ("colorama", "Untuk warna terminal")
     ]
     
     print("Package yang akan diinstall:")
-    for req in requirements:
-        print(f"  - {req}")
+    for package, description in requirements:
+        print(f"  - {package:15} ({description})")
     
-    confirm = input("\nApakah Anda ingin menginstall package tersebut? (y/n): ").lower()
+    confirm = input("\nApakah Anda ingin menginstall semua package? (y/n): ").lower()
     
     if confirm == 'y':
-        print("\n🔧 Menginstall requirements...")
+        print("\n🔧 Memulai installation...")
+        success_count = 0
+        total_count = len(requirements)
         
-        for package in requirements:
+        for package, description in requirements:
             try:
-                print(f"Installing {package}...")
+                print(f"\n📦 Installing {package}...")
                 subprocess.check_call([sys.executable, "-m", "pip", "install", package])
                 print(f"✅ {package} berhasil diinstall")
+                success_count += 1
             except subprocess.CalledProcessError as e:
                 print(f"❌ Gagal install {package}: {e}")
             except Exception as e:
                 print(f"❌ Error saat install {package}: {e}")
         
-        print("\n🎉 Semua package berhasil diinstall!")
-        print("Silakan restart program untuk menerapkan perubahan.")
-        input("Tekan Enter untuk keluar...")
-        sys.exit(0)
+        print(f"\n📊 HASIL INSTALLATION:")
+        print(f"✅ Berhasil: {success_count}/{total_count}")
+        
+        if success_count == total_count:
+            print("🎉 Semua package berhasil diinstall!")
+            print("Silakan restart program untuk menerapkan perubahan.")
+        else:
+            print("⚠️ Beberapa package gagal diinstall.")
+            print("Coba install manual dengan opsi specific.")
+            
     else:
         print("Installation dibatalkan.")
 
-def check_system_requirements():
-    """Cek requirements sistem dan berikan rekomendasi"""
-    print("\n=== SYSTEM REQUIREMENTS CHECK ===")
+def install_specific_package(package_name):
+    """Install package tertentu"""
+    print(f"\n=== INSTALL {package_name.upper()} ===")
     
-    issues = []
+    package_info = {
+        "requests": "Library untuk HTTP requests (dibutuhkan Website Checker)",
+        "colorama": "Library untuk warna di terminal (opsional)"
+    }
     
-    # Cek Python version
-    python_version = sys.version_info
-    if python_version < (3, 6):
-        issues.append(f"Python version {python_version[0]}.{python_version[1]} - Rekomendasi: Python 3.6+")
+    description = package_info.get(package_name, "Package utility")
+    print(f"Package: {package_name}")
+    print(f"Deskripsi: {description}")
+    
+    confirm = input(f"\nApakah Anda ingin menginstall {package_name}? (y/n): ").lower()
+    
+    if confirm == 'y':
+        try:
+            print(f"🔧 Installing {package_name}...")
+            subprocess.check_call([sys.executable, "-m", "pip", "install", package_name])
+            print(f"✅ {package_name} berhasil diinstall!")
+            
+            # Update status
+            global REQUESTS_AVAILABLE
+            if package_name == "requests":
+                try:
+                    import requests
+                    REQUESTS_AVAILABLE = True
+                except ImportError:
+                    pass
+                    
+        except subprocess.CalledProcessError as e:
+            print(f"❌ Gagal install {package_name}: {e}")
+            print("💡 Coba gunakan: pip install " + package_name)
+        except Exception as e:
+            print(f"❌ Error: {e}")
     else:
-        print(f"✅ Python {python_version[0]}.{python_version[1]}.{python_version[2]} - OK")
+        print("Installation dibatalkan.")
+
+def show_detailed_system_info():
+    """Menampilkan informasi sistem detail"""
+    print("\n=== DETAILED SYSTEM INFORMATION ===")
     
-    # Cek packages
-    packages_to_check = [
-        ("requests", "Untuk website checker"),
-        ("colorama", "Untuk warna terminal (opsional)")
+    # Basic info
+    print(f"Python Version: {sys.version}")
+    print(f"Platform: {platform.system()} {platform.release()}")
+    print(f"Architecture: {platform.architecture()[0]}")
+    print(f"Processor: {platform.processor() or 'Tidak diketahui'}")
+    
+    # Python executable dan path
+    print(f"Python Executable: {sys.executable}")
+    print(f"Python Path: {sys.prefix}")
+    
+    # PIP information
+    try:
+        pip_version = subprocess.check_output([sys.executable, "-m", "pip", "--version"]).decode().strip()
+        print(f"PIP Version: {pip_version}")
+    except:
+        print("PIP Version: Tidak dapat dideteksi")
+    
+    # Platform specific info
+    system = platform.system()
+    if system == "Windows":
+        print("Windows Version:", platform.win32_ver())
+    elif system == "Linux":
+        try:
+            with open('/etc/os-release', 'r') as f:
+                for line in f:
+                    if 'PRETTY_NAME' in line:
+                        print("OS:", line.split('=')[1].strip().strip('"'))
+                        break
+        except:
+            pass
+            
+        # Memory info untuk Linux/Android
+        try:
+            with open('/proc/meminfo', 'r') as f:
+                mem_lines = f.readlines()[:3]
+                print("\n💾 Memory Info:")
+                for line in mem_lines:
+                    print("  " + line.strip())
+        except:
+            pass
+    
+    elif "Android" in system:
+        print("📱 Environment: Android Termux")
+        try:
+            # Cek termux packages
+            result = subprocess.run(['pkg', 'list-installed'], capture_output=True, text=True)
+            if result.returncode == 0:
+                pkg_count = len([line for line in result.stdout.split('\n') if line.strip()])
+                print(f"Installed Packages: {pkg_count}")
+        except:
+            pass
+
+def test_dependencies():
+    """Test semua dependencies"""
+    print("\n=== DEPENDENCIES TEST ===")
+    
+    tests = [
+        ("Python Version", test_python_version),
+        ("Requests Module", test_requests),
+        ("Network Connection", test_network),
+        ("PIP Availability", test_pip),
+        ("System Commands", test_system_commands)
     ]
     
-    for package, purpose in packages_to_check:
+    print("🧪 Menjalankan tests...\n")
+    
+    for test_name, test_func in tests:
         try:
-            __import__(package)
-            print(f"✅ {package} - OK")
-        except ImportError:
-            issues.append(f"❌ {package} - Belum terinstall ({purpose})")
-    
-    # Cek sistem operasi
-    system = platform.system()
-    print(f"✅ Sistem Operasi: {system} - OK")
-    
-    if issues:
-        print("\n⚠️  ISSUES YANG DITEMUKAN:")
-        for issue in issues:
-            print(f"  {issue}")
-        
-        print("\n💡 REKOMENDASI:")
-        if system == "Windows":
-            print("  - Jalankan sebagai Administrator jika perlu")
-        elif system == "Linux":
-            print("  - Gunakan 'sudo' untuk perintah yang butuh akses root")
-        elif "Android" in system or "Linux" in system:
-            print("  - Untuk Termux: pastikan sudah 'pkg update && pkg upgrade'")
-        
-        print("\n🔧 Gunakan opsi '5. Install Requirements' di menu utama")
-        input("\nTekan Enter untuk lanjut...")
+            result, message = test_func()
+            status = "✅" if result else "❌"
+            print(f"{status} {test_name:20} : {message}")
+        except Exception as e:
+            print(f"❌ {test_name:20} : ERROR - {e}")
+
+def test_python_version():
+    """Test Python version"""
+    version = sys.version_info
+    if version >= (3, 6):
+        return True, f"OK (v{version.major}.{version.minor}.{version.micro})"
     else:
-        print("\n🎉 Semua requirements terpenuhi!")
-        input("Tekan Enter untuk lanjut...")
+        return False, f"Rekomendasi 3.6+ (current: v{version.major}.{version.minor})"
+
+def test_requests():
+    """Test requests module"""
+    try:
+        import requests
+        return True, "OK - Terinstall"
+    except ImportError:
+        return False, "Tidak terinstall"
+
+def test_network():
+    """Test koneksi network"""
+    try:
+        import requests
+        response = requests.get('https://www.google.com', timeout=5)
+        return True, "OK - Connected"
+    except:
+        return False, "Tidak terhubung"
+
+def test_pip():
+    """Test PIP availability"""
+    try:
+        subprocess.check_output([sys.executable, "-m", "pip", "--version"])
+        return True, "OK - Available"
+    except:
+        return False, "Tidak tersedia"
+
+def test_system_commands():
+    """Test system commands"""
+    system = platform.system()
+    try:
+        if system == "Windows":
+            subprocess.check_output(['cmd', '/c', 'echo', 'test'], timeout=5)
+        else:
+            subprocess.check_output(['echo', 'test'], timeout=5)
+        return True, "OK - Commands work"
+    except:
+        return False, "Error executing commands"
 
 def website_checker():
     """Program untuk mengecek status website"""
     if not REQUESTS_AVAILABLE:
         print("❌ Module 'requests' belum terinstall!")
-        print("Gunakan opsi '5. Install Requirements' terlebih dahulu")
+        print("Gunakan opsi '5. System Setup & Requirements' terlebih dahulu")
         return
     
     print("\n=== WEBSITE CHECKER ===")
@@ -189,7 +370,6 @@ def random_string_generator():
         characters = string.ascii_letters + string.digits + string.punctuation
         print("Menggunakan: A-Za-z0-9 + simbol")
     elif choice == "7":
-        # Password kuat dengan minimal requirements
         characters = string.ascii_letters + string.digits + "!@#$%&*"
         print("Menggunakan: karakter password kuat")
     elif choice == "8":
@@ -202,12 +382,9 @@ def random_string_generator():
         print("❌ Pilihan tidak valid!")
         return
     
-    # Generate random string
     result = ''.join(random.choice(characters) for _ in range(length))
-    
     print(f"\n🔹 String Acak: {result}")
     
-    # Tambahan: generate beberapa string sekaligus
     generate_more = input("\nGenerate lebih banyak? (y/n): ").lower()
     if generate_more == 'y':
         try:
@@ -235,12 +412,10 @@ def wifi_checker():
     if system == "Windows":
         print("\n📡 Menampilkan jaringan WiFi yang tersedia...")
         try:
-            # Show available WiFi profiles
             result = subprocess.run(['netsh', 'wlan', 'show', 'profiles'], 
                                   capture_output=True, text=True, encoding='utf-8')
             print(result.stdout)
             
-            # Show interfaces
             print("\n📡 Informasi WiFi Interface:")
             result = subprocess.run(['netsh', 'wlan', 'show', 'interfaces'], 
                                   capture_output=True, text=True, encoding='utf-8')
@@ -278,10 +453,10 @@ def scan_wifi_linux():
     print("\n📡 Scanning WiFi networks...")
     
     commands_to_try = [
-        ['termux-wifi-scaninfo'],  # Termux specific
-        ['nmcli', 'dev', 'wifi'],  # NetworkManager
-        ['iwlist', 'scan'],        # iwlist
-        ['iw', 'dev', 'list']      # iw
+        ['termux-wifi-scaninfo'],
+        ['nmcli', 'dev', 'wifi'],
+        ['iwlist', 'scan'],
+        ['iw', 'dev', 'list']
     ]
     
     success = False
@@ -293,7 +468,7 @@ def scan_wifi_linux():
                 print(result.stdout)
                 success = True
                 break
-        except (subprocess.TimeoutExpired, FileNotFoundError, Exception) as e:
+        except:
             continue
     
     if not success:
@@ -302,7 +477,6 @@ def scan_wifi_linux():
         print("1. Install: pkg install termux-api")
         print("2. Atau: pkg install nmap")
         print("3. Berikan permission: termux-setup-storage")
-        print("4. Untuk iwlist: pkg install wireless-tools")
 
 def check_network_interfaces():
     """Cek network interfaces"""
@@ -334,12 +508,10 @@ def check_current_network():
     try:
         print("\n📊 Informasi Jaringan Saat Ini:")
         
-        # IP address
         result = subprocess.run(['hostname', '-I'], capture_output=True, text=True)
         if result.returncode == 0:
             print(f"IP Address: {result.stdout.strip()}")
         
-        # Gateway
         result = subprocess.run(['ip', 'route'], capture_output=True, text=True)
         if result.returncode == 0:
             for line in result.stdout.split('\n'):
@@ -347,7 +519,6 @@ def check_current_network():
                     print(f"Gateway: {line}")
                     break
         
-        # DNS
         try:
             with open('/etc/resolv.conf', 'r') as f:
                 dns_servers = [line for line in f if 'nameserver' in line]
@@ -361,31 +532,12 @@ def check_current_network():
     except Exception as e:
         print(f"❌ Error: {e}")
 
-def show_system_info():
-    """Menampilkan informasi sistem"""
-    print("\n=== SYSTEM INFORMATION ===")
-    print(f"Python Version: {sys.version}")
-    print(f"Platform: {platform.system()} {platform.release()}")
-    print(f"Architecture: {platform.architecture()[0]}")
-    print(f"Processor: {platform.processor()}")
-    
-    # Memory info (Linux/Android)
-    if platform.system() in ["Linux", "Android"]:
-        try:
-            with open('/proc/meminfo', 'r') as f:
-                for line in f:
-                    if 'MemTotal' in line or 'MemAvailable' in line:
-                        print(line.strip())
-        except:
-            pass
-
 def main():
     """Menu utama program"""
     while True:
         clear_screen()
         display_header()
         
-        # Tampilkan status requirements
         req_status = "✅" if REQUESTS_AVAILABLE else "❌"
         
         print("\n📋 MENU UTAMA:")
@@ -393,13 +545,12 @@ def main():
         print("2. 🔤 Random String Generator") 
         print("3. 📡 Hidden WiFi Checker")
         print("4. 💻 System Information")
-        print("5. 🔧 Install Requirements")
-        print("6. ✅ Check System Requirements")
-        print("7. 🚪 Keluar")
+        print("5. 🔧 System Setup & Requirements")
+        print("6. 🚪 Keluar")
         
         print(f"\nStatus: requests {req_status}")
         
-        choice = input("\nPilih program (1-7): ").strip()
+        choice = input("\nPilih program (1-6): ").strip()
         
         if choice == "1":
             website_checker()
@@ -408,12 +559,10 @@ def main():
         elif choice == "3":
             wifi_checker()
         elif choice == "4":
-            show_system_info()
+            show_detailed_system_info()
         elif choice == "5":
-            install_requirements()
+            system_setup_requirements()
         elif choice == "6":
-            check_system_requirements()
-        elif choice == "7":
             print("\n👋 Terima kasih telah menggunakan program!")
             print("📧 Support: https://github.com/your-repo")
             break
@@ -423,10 +572,9 @@ def main():
         input("\nTekan Enter untuk kembali ke menu...")
 
 if __name__ == "__main__":
-    # Auto-check requirements pertama kali
     if not REQUESTS_AVAILABLE:
         print("⚠️  Module 'requests' belum terinstall!")
-        print("Gunakan opsi '5. Install Requirements' di menu utama")
+        print("Gunakan opsi '5. System Setup & Requirements' di menu utama")
         input("Tekan Enter untuk lanjut...")
     
     main()
