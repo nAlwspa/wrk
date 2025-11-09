@@ -15,14 +15,26 @@ LOG_DIR = "logtermux"
 LOG_FILE = os.path.join(LOG_DIR, "logreport.txt")
 
 def setup_logging():
-    """Setup directory dan file log"""
-    if not os.path.exists(LOG_DIR):
-        os.makedirs(LOG_DIR)
+    """Setup directory dan file log dengan path lengkap"""
+    # Buat direktori log di storage external jika di Android
+    if platform.system() == "Linux" and "ANDROID_ROOT" in os.environ:
+        log_base_dir = "/sdcard/TermuxLogs"
+    else:
+        log_base_dir = LOG_DIR
+    
+    if not os.path.exists(log_base_dir):
+        os.makedirs(log_base_dir)
+    
+    global LOG_FILE
+    LOG_FILE = os.path.join(log_base_dir, "logreport.txt")
     
     with open(LOG_FILE, 'a', encoding='utf-8') as f:
         f.write(f"\n{'='*50}\n")
         f.write(f"LOG SESSION - {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+        f.write(f"Log Path: {LOG_FILE}\n")
         f.write(f"{'='*50}\n")
+    
+    print(f"📝 Log system aktif: {LOG_FILE}")
 
 def log_message(message):
     """Log message ke file"""
@@ -52,11 +64,12 @@ def clear_screen():
     os.system('cls' if os.name == 'nt' else 'clear')
 
 def display_header():
-    """Menampilkan header program"""
+    """Menampilkan header program dengan info log"""
     print("=" * 60)
-    print("           PROGRAM SHORTCUT UTILITIES")
+    print("           PROGRAM SHORTCUT UTILITIES - ADVANCED")
     print("=" * 60)
     print(f"Python {sys.version} - {platform.system()}")
+    print(f"Log Path: {LOG_FILE}")
     print("=" * 60)
 
 def auto_detect_and_install():
@@ -93,6 +106,194 @@ def auto_detect_and_install():
     
     input("\nTekan Enter untuk kembali...")
     
+def scan_hidden_wifi():
+    """Scan untuk WiFi hidden networks"""
+    print("\n🔍 SCAN HIDDEN WIFI NETWORKS")
+    print("=" * 50)
+    
+    log_message("Starting hidden WiFi scan")
+    
+    methods = [
+        {
+            "name": "Advanced iwlist scan",
+            "cmd": ["iwlist", "scanning"],
+            "timeout": 20,
+            "parse_func": parse_iwlist_hidden
+        },
+        {
+            "name": "iw dev scan", 
+            "cmd": ["iw", "dev", "wlan0", "scan"],
+            "timeout": 15,
+            "parse_func": parse_iw_scan
+        }
+    ]
+    
+    print("🔄 Mencari jaringan tersembunyi...")
+    print("💡 Hidden WiFi biasanya tidak broadcast SSID")
+    
+    found_hidden = False
+    
+    for method in methods:
+        try:
+            print(f"\n🔄 Mencoba: {method['name']}")
+            result = subprocess.run(
+                method["cmd"],
+                capture_output=True, 
+                text=True, 
+                timeout=method["timeout"]
+            )
+            
+            if result.returncode == 0:
+                hidden_networks = method["parse_func"](result.stdout)
+                if hidden_networks:
+                    found_hidden = True
+                    break
+            else:
+                print(f"❌ {method['name']} gagal")
+                
+        except Exception as e:
+            print(f"❌ {method['name']} error: {e}")
+    
+    if not found_hidden:
+        print("\n📶 Tidak ditemukan jaringan tersembunyi")
+        print("💡 Hidden networks sangat sulit dideteksi tanpa tools khusus")
+    
+    log_message("Hidden WiFi scan completed")
+
+def parse_iwlist_hidden(output):
+    """Parse iwlist output untuk hidden networks"""
+    hidden_networks = []
+    lines = output.split('\n')
+    
+    current_ssid = None
+    current_bssid = None
+    is_hidden = False
+    
+    for line in lines:
+        line = line.strip()
+        
+        if 'ESSID:' in line:
+            essid = line.split('ESSID:')[1].strip().strip('"')
+            if essid and essid != '""':  # SSID terdeteksi
+                current_ssid = essid
+                is_hidden = False
+            else:  # Hidden network
+                current_ssid = "[HIDDEN]"
+                is_hidden = True
+        
+        elif 'Address:' in line:
+            current_bssid = line.split('Address:')[1].strip()
+        
+        elif 'Signal level=' in line and current_bssid:
+            if is_hidden and current_ssid == "[HIDDEN]":
+                hidden_networks.append({
+                    'bssid': current_bssid,
+                    'ssid': '[HIDDEN NETWORK]',
+                    'signal': extract_signal_level(line)
+                })
+    
+    if hidden_networks:
+        print(f"\n🎯 Ditemukan {len(hidden_networks)} Hidden Networks:")
+        print("=" * 50)
+        for i, net in enumerate(hidden_networks, 1):
+            print(f"{i}. BSSID: {net['bssid']}")
+            print(f"   SSID: {net['ssid']}")
+            print(f"   Signal: {net['signal']}")
+            print()
+        
+        log_message(f"Found {len(hidden_networks)} hidden networks")
+    
+    return hidden_networks
+
+def parse_iw_scan(output):
+    """Parse iw dev scan output"""
+    hidden_networks = []
+    lines = output.split('\n')
+    
+    current_bssid = None
+    ssid_found = False
+    
+    for line in lines:
+        line = line.strip()
+        
+        if line.startswith('BSS '):
+            parts = line.split()
+            if len(parts) > 1:
+                current_bssid = parts[1]
+                ssid_found = False
+        
+        elif 'SSID:' in line:
+            ssid_found = True
+        
+        elif 'signal:' in line and current_bssid and not ssid_found:
+            # Ini kemungkinan hidden network
+            signal = line.split('signal:')[1].strip().split()[0]
+            hidden_networks.append({
+                'bssid': current_bssid,
+                'ssid': '[HIDDEN]',
+                'signal': f"{signal} dBm"
+            })
+    
+    return hidden_networks
+
+def extract_signal_level(line):
+    """Extract signal level dari iwlist output"""
+    if 'Signal level=' in line:
+        try:
+            signal_part = line.split('Signal level=')[1].split()[0]
+            return f"{signal_part} dBm"
+        except:
+            return "N/A"
+    return "N/A"
+    
+
+def wifi_deauth_detector():
+    """Deteksi potensi WiFi deauthentication attacks"""
+    print("\n🚨 WIFI DEAUTHENTICATION DETECTOR")
+    print("=" * 50)
+    
+    log_message("Starting deauth detection")
+    
+    print("🔍 Memindai potensi serangan WiFi...")
+    print("💡 Fitur ini mendeteksi packet anomali")
+    
+    try:
+        # Cek jika tcpdump tersedia
+        result = subprocess.run(['tcpdump', '--version'], capture_output=True, text=True, timeout=10)
+        if result.returncode != 0:
+            print("❌ tcpdump tidak tersedia")
+            print("💡 Install: pkg install tcpdump")
+            return
+        
+        print("🔄 Menjalankan packet capture (10 detik)...")
+        print("📡 Monitoring WiFi packets...")
+        
+        # Capture packets singkat
+        result = subprocess.run([
+            'timeout', '10', 'tcpdump', 
+            '-i', 'any',
+            '-c', '50',
+            'type', 'mgt', 'subtype', 'deauth'
+        ], capture_output=True, text=True, timeout=15)
+        
+        deauth_count = result.stdout.count('DeAuthentication')
+        
+        if deauth_count > 0:
+            print(f"🚨 PERINGATAN: Ditemukan {deauth_count} deauth packets!")
+            print("⚠️  Kemungkinan ada serangan WiFi di sekitar")
+            log_message(f"DEAUTH DETECTED: {deauth_count} packets")
+        else:
+            print("✅ Tidak terdeteksi deauth packets")
+            print("🛡️  Jaringan WiFi tampak aman")
+            log_message("No deauth packets detected")
+            
+    except subprocess.TimeoutExpired:
+        print("⏰ Timeout - monitoring selesai")
+        print("✅ Tidak terdeteksi aktivitas mencurigakan")
+    except Exception as e:
+        print(f"❌ Error: {e}")
+        log_message(f"Deauth detection error: {e}")
+
 def detect_required_packages(is_termux):
     """Deteksi packages yang diperlukan"""
     required = {
@@ -518,44 +719,206 @@ def wifi_checker():
         desktop_wifi_check()
 
 def termux_wifi_check():
-    """WiFi check untuk Termux"""
-    print("\n1. 📡 Scan WiFi")
-    print("2. 📶 Status Koneksi")
-    print("3. 🚀 Speed Test")
-    
-    choice = input("Pilih opsi (1-3): ").strip()
-    
-    if choice == "1":
-        scan_wifi_termux()
-    elif choice == "2":
-        wifi_status_termux()
-    elif choice == "3":
-        speed_test()
-    else:
-        print("❌ Pilihan tidak valid!")
-
-def scan_wifi_termux():
-    """Scan WiFi di Termux"""
-    print("\n📡 Scanning WiFi...")
-    
-    try:
-        result = subprocess.run(['termux-wifi-scaninfo'], 
-                              capture_output=True, text=True, timeout=30)
+    """WiFi check untuk Termux dengan fitur tambahan"""
+    while True:
+        print("\n=== TERMUX WIFI CHECKER - ADVANCED ===")
+        print("1. 📡 Scan WiFi Networks (Advanced)")
+        print("2. 🔍 Scan Hidden WiFi Networks") 
+        print("3. 📶 Current Connection Status")
+        print("4. 🚨 Deauth Attack Detector")
+        print("5. 🚀 Internet Speed Test")
+        print("6. 🔧 Check Permissions & Troubleshoot")
+        print("7. 🏠 Back to Main Menu")
         
-        if result.returncode == 0 and result.stdout.strip():
-            networks = json.loads(result.stdout)
-            print(f"\n📶 Found {len(networks)} networks:")
-            for net in networks[:10]:  # Tampilkan 10 pertama
-                ssid = net.get('ssid', 'Hidden')
-                bssid = net.get('bssid', 'N/A')
-                print(f"  📶 {ssid} | {bssid}")
+        choice = input("Pilih opsi (1-7): ").strip()
+        
+        if choice == "1":
+            scan_wifi_termux()  # Yang sudah dimodifikasi
+        elif choice == "2":
+            scan_hidden_wifi()  # Fungsi baru
+        elif choice == "3":
+            wifi_status_termux()
+        elif choice == "4":
+            wifi_deauth_detector()  # Fungsi baru
+        elif choice == "5":
+            speed_test()
+        elif choice == "6":
+            check_wifi_permissions()
+        elif choice == "7":
+            break
         else:
-            print("❌ Gagal scan WiFi")
-            print("💡 Pastikan termux-api terinstall dan izin lokasi aktif")
+            print("❌ Pilihan tidak valid!")
+        
+        input("\nTekan Enter untuk lanjut...")
+        
+def scan_wifi_termux():
+    """Scan WiFi di Termux dengan statistics lengkap"""
+    print("\n📡 SCAN WIFI NETWORKS - ADVANCED")
+    log_message("Starting advanced WiFi scan")
+    
+    methods = [
+        {
+            "name": "Termux WiFi Scan", 
+            "cmd": ["termux-wifi-scaninfo"],
+            "timeout": 15,
+            "parse_func": parse_termux_wifi_scan_advanced
+        },
+        {
+            "name": "NetworkManager", 
+            "cmd": ["nmcli", "-t", "-f", "SSID,BSSID,SIGNAL,FREQ,SECURITY", "dev", "wifi"],
+            "timeout": 10,
+            "parse_func": parse_nmcli_wifi_advanced
+        }
+    ]
+    
+    success = False
+    total_networks = 0
+    
+    for i, method in enumerate(methods, 1):
+        try:
+            print(f"\n🔄 Method {i}/{len(methods)}: {method['name']}...")
             
-    except Exception as e:
-        print(f"❌ Error: {e}")
+            result = subprocess.run(
+                method["cmd"], 
+                capture_output=True, 
+                text=True, 
+                timeout=method["timeout"]
+            )
+            
+            if result.returncode == 0 and result.stdout.strip():
+                print(f"✅ {method['name']} berhasil!")
+                success = True
+                networks_found = method["parse_func"](result.stdout)
+                total_networks = len(networks_found)
+                break
+            else:
+                print(f"❌ {method['name']} gagal (no output)")
+                
+        except Exception as e:
+            print(f"❌ {method['name']} error: {str(e)[:50]}...")
+    
+    # Tampilkan statistics
+    print(f"\n📊 SCAN STATISTICS:")
+    print(f"   Total Networks: {total_networks}")
+    
+    # Signal range analysis
+    if total_networks > 0:
+        print(f"   Signal Range: -30dBm (Excellent) to -90dBm (Poor)")
+        print(f"   Recommended: Connect to networks > -70dBm")
+    
+    if not success:
+        show_wifi_scan_troubleshooting()
 
+def parse_termux_wifi_scan_advanced(output):
+    """Parse advanced WiFi scan dengan statistics"""
+    try:
+        networks = json.loads(output)
+        if not networks:
+            print("📶 Tidak ada jaringan WiFi yang terdeteksi")
+            return []
+        
+        # Kategorikan berdasarkan signal strength
+        excellent = []  # > -50 dBm
+        good = []       # -50 to -65 dBm  
+        fair = []       # -65 to -75 dBm
+        poor = []       # < -75 dBm
+        
+        for net in networks:
+            ssid = net.get('ssid', 'Hidden')
+            bssid = net.get('bssid', 'N/A')
+            rssi = net.get('rssi', 0)
+            
+            try:
+                rssi_val = int(rssi)
+                if rssi_val > -50:
+                    excellent.append(net)
+                elif rssi_val > -65:
+                    good.append(net)
+                elif rssi_val > -75:
+                    fair.append(net)
+                else:
+                    poor.append(net)
+            except:
+                fair.append(net)  # Default jika parsing gagal
+        
+        # Tampilkan summary
+        print(f"\n📶 FOUND {len(networks)} NETWORKS:")
+        print("=" * 60)
+        print(f"✅ Excellent ({len(excellent)}): > -50 dBm")
+        print(f"🟢 Good ({len(good)}): -50 to -65 dBm") 
+        print(f"🟡 Fair ({len(fair)}): -65 to -75 dBm")
+        print(f"🔴 Poor ({len(poor)}): < -75 dBm")
+        print("=" * 60)
+        
+        # Tampilkan networks (max 20)
+        display_networks = excellent + good + fair + poor
+        display_count = min(20, len(display_networks))
+        
+        print(f"\n📋 TOP {display_count} NETWORKS:")
+        for i, net in enumerate(display_networks[:display_count], 1):
+            ssid = net.get('ssid', 'Hidden')
+            bssid = net.get('bssid', 'N/A')[:17]  # Shorten BSSID
+            rssi = net.get('rssi', 'N/A')
+            freq = net.get('frequency_mhz', 'N/A')
+            
+            # Signal quality indicator
+            try:
+                rssi_val = int(rssi)
+                if rssi_val > -50:
+                    signal_icon = "💪"
+                elif rssi_val > -65:
+                    signal_icon = "👍"  
+                elif rssi_val > -75:
+                    signal_icon = "👌"
+                else:
+                    signal_icon = "👎"
+            except:
+                signal_icon = "📶"
+            
+            print(f"{i:2d}. {signal_icon} {ssid}")
+            print(f"     📡 {bssid} | 📶 {rssi} dBm | 📊 {freq} MHz")
+            print()
+        
+        if len(networks) > display_count:
+            print(f"... and {len(networks) - display_count} more networks")
+            
+        log_message(f"WiFi scan found {len(networks)} networks")
+        return networks
+        
+    except json.JSONDecodeError:
+        print("❌ Gagal parse hasil scan")
+        return []
+
+def parse_nmcli_wifi_advanced(output):
+    """Parse nmcli dengan statistics"""
+    if not output.strip():
+        return []
+        
+    lines = output.strip().split('\n')
+    networks = []
+    
+    for line in lines:
+        parts = line.split(':')
+        if len(parts) >= 5:
+            network = {
+                'ssid': parts[0] if parts[0] else 'Hidden',
+                'bssid': parts[1] if len(parts) > 1 else 'N/A',
+                'signal': parts[2] if len(parts) > 2 else 'N/A',
+                'frequency': parts[3] if len(parts) > 3 else 'N/A',
+                'security': parts[4] if len(parts) > 4 else 'N/A'
+            }
+            networks.append(network)
+    
+    print(f"\n📶 FOUND {len(networks)} NETWORKS (nmcli):")
+    print("=" * 50)
+    
+    for i, net in enumerate(networks[:15], 1):
+        print(f"{i:2d}. {net['ssid']}")
+        print(f"     Signal: {net['signal']}% | Security: {net['security']}")
+        print()
+    
+    return networks
+    
 def wifi_status_termux():
     """Status WiFi di Termux"""
     try:
