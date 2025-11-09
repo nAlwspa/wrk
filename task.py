@@ -532,7 +532,148 @@ def check_termux_api():
         except:
             return False
     return True  # Skip untuk non-Android
+def check_wifi_permissions():
+    """Cek status permissions WiFi dan requirements"""
+    print("\n🔍 CHECKING WIFI PERMISSIONS & REQUIREMENTS")
+    print("=" * 50)
+    
+    log_message("Checking WiFi permissions")
+    
+    checks = [
+        {
+            "name": "Termux-API Package",
+            "cmd": ["pkg", "list-installed"],
+            "success_indicator": "termux-api",
+            "fix_cmd": ["pkg", "install", "-y", "termux-api"]
+        },
+        {
+            "name": "Wireless Tools", 
+            "cmd": ["pkg", "list-installed"],
+            "success_indicator": "wireless-tools",
+            "fix_cmd": ["pkg", "install", "-y", "wireless-tools"]
+        },
+        {
+            "name": "Location Permission",
+            "cmd": ["termux-location"],
+            "success_indicator": "latitude",
+            "fix_manual": "Settings → Apps → Termux → Permissions → Location"
+        },
+        {
+            "name": "WiFi Scan Capability",
+            "cmd": ["termux-wifi-scaninfo"],
+            "success_indicator": "ssid",
+            "fix_manual": "Enable Location services and grant permission"
+        },
+        {
+            "name": "Storage Permission", 
+            "cmd": ["termux-setup-storage"],
+            "success_indicator": "shared",
+            "fix_manual": "Run: termux-setup-storage"
+        }
+    ]
+    
+    issues_found = 0
+    
+    for check in checks:
+        try:
+            print(f"\n🔍 Checking: {check['name']}...")
+            
+            if check['cmd'][0] == "termux-setup-storage":
+                # Special handling untuk storage setup
+                print("   ℹ️  Storage permission check - manual verification needed")
+                continue
+                
+            result = subprocess.run(
+                check["cmd"], 
+                capture_output=True, 
+                text=True, 
+                timeout=10
+            )
+            
+            if result.returncode == 0 and check["success_indicator"] in result.stdout:
+                print(f"   ✅ {check['name']}: OK")
+            else:
+                print(f"   ❌ {check['name']}: ISSUE FOUND")
+                issues_found += 1
+                
+                # Tampilkan solusi
+                if 'fix_cmd' in check:
+                    print(f"   💡 Fix: {' '.join(check['fix_cmd'])}")
+                elif 'fix_manual' in check:
+                    print(f"   💡 Fix: {check['fix_manual']}")
+                    
+        except subprocess.TimeoutExpired:
+            print(f"   ⏰ {check['name']}: TIMEOUT")
+            issues_found += 1
+        except FileNotFoundError:
+            print(f"   📛 {check['name']}: COMMAND NOT FOUND")
+            issues_found += 1
+        except Exception as e:
+            print(f"   ❌ {check['name']}: ERROR - {e}")
+            issues_found += 1
+    
+    # Summary
+    print(f"\n📊 PERMISSION CHECK SUMMARY:")
+    print(f"   Total Checks: {len(checks)}")
+    print(f"   Issues Found: {issues_found}")
+    
+    if issues_found == 0:
+        print("   🎉 All permissions are properly configured!")
+    else:
+        print(f"   ⚠️  Found {issues_found} issues that need attention")
+        
+        # Tanya user apakah mau auto-fix
+        if issues_found > 0:
+            fix_choice = input("\n🚀 Auto-fix detected issues? (y/n): ").lower()
+            if fix_choice == 'y':
+                auto_fix_permissions(checks)
+    
+    log_message(f"Permission check completed: {issues_found} issues found")
 
+def auto_fix_permissions(checks):
+    """Auto-fix permissions issues"""
+    print("\n🔧 AUTO-FIXING PERMISSIONS...")
+    
+    fixed_count = 0
+    
+    for check in checks:
+        try:
+            # Test dulu apakah masih ada issue
+            result = subprocess.run(
+                check["cmd"], 
+                capture_output=True, 
+                text=True, 
+                timeout=10
+            )
+            
+            # Jika masih ada issue dan ada fix command
+            if (result.returncode != 0 or check["success_indicator"] not in result.stdout) and 'fix_cmd' in check:
+                print(f"\n🔄 Fixing: {check['name']}...")
+                
+                fix_result = subprocess.run(
+                    check["fix_cmd"],
+                    capture_output=True,
+                    text=True,
+                    timeout=60
+                )
+                
+                if fix_result.returncode == 0:
+                    print(f"   ✅ {check['name']}: FIXED")
+                    fixed_count += 1
+                else:
+                    print(f"   ❌ {check['name']}: FAILED TO FIX")
+                    
+        except Exception as e:
+            print(f"   ❌ {check['name']}: FIX ERROR - {e}")
+    
+    print(f"\n📊 FIX SUMMARY:")
+    print(f"   Fixed: {fixed_count} issues")
+    
+    if fixed_count > 0:
+        print("   🔄 Restart Termux untuk perubahan berlaku")
+    
+    log_message(f"Auto-fix completed: {fixed_count} issues fixed")
+    
 def check_network_tools():
     """Cek network tools"""
     try:
