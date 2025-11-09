@@ -1834,8 +1834,8 @@ if __name__ == "__main__":
     try:
         main()
     except KeyboardInterrupt:
-        print("\n\n⚠️  Program dihentikan")
-        log_message("Program interrupted")
+        print("\n\n👋 Program terminated by user")
+        log_message("Program interrupted by user")
     except Exception as e:
         print(f"\n❌ Error: {e}")
         log_message(f"Program error: {e}")
