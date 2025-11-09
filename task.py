@@ -15,6 +15,9 @@ from datetime import datetime
 # Setup logging
 LOG_DIR = "logtermux"
 LOG_FILE = os.path.join(LOG_DIR, "logreport.txt")
+CRACK_LOG_DIR = "wifi_crack_logs"
+if not os.path.exists(CRACK_LOG_DIR):
+    os.makedirs(CRACK_LOG_DIR)
 
 def setup_logging():
     """Setup directory dan file log dengan path lengkap"""
@@ -1122,11 +1125,6 @@ def desktop_wifi_check():
         print("❌ Pilihan tidak valid!")
 
 def main():
-
-# Setup logging untuk WiFi cracking
-CRACK_LOG_DIR = "wifi_crack_logs"
-if not os.path.exists(CRACK_LOG_DIR):
-    os.makedirs(CRACK_LOG_DIR)
 
 def setup_wifi_cracking():
     """Setup environment untuk WiFi cracking"""
