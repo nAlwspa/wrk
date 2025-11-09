@@ -1865,7 +1865,6 @@ def wifi_security_audit():
 
 # Tambahkan menu ini ke main program utama
 def main():
-def main():
     """Menu utama program yang diperbarui"""
     setup_logging()
     log_message("Program started")
