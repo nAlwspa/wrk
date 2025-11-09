@@ -9,8 +9,8 @@ import json
 import socket
 import datetime
 import threading
+import datetime
 from urllib.parse import urlparse
-from datetime import datetime
 
 # Setup logging
 LOG_DIR = "logtermux"
@@ -537,6 +537,79 @@ def check_termux_api():
         except:
             return False
     return True  # Skip untuk non-Android
+
+def install_termux_api_fix():
+    """Install termux-api dan dependencies"""
+    print("\n🔧 Installing Termux-API...")
+    
+    commands = [
+        ["pkg", "update"],
+        ["pkg", "install", "-y", "termux-api"],
+        ["pkg", "install", "-y", "termux-tools"],
+        ["pkg", "install", "-y", "wireless-tools"]
+    ]
+    
+    for cmd in commands:
+        try:
+            print(f"Running: {' '.join(cmd)}")
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
+            if result.returncode == 0:
+                print(f"✅ {' '.join(cmd)} berhasil")
+            else:
+                print(f"❌ {' '.join(cmd)} gagal")
+        except Exception as e:
+            print(f"❌ Error: {e}")
+    
+    print("\n📋 Setelah install, lakukan:")
+    print("1. Berikan izin Location ke Termux")
+    print("2. Tutup dan buka kembali Termux")
+    print("3. Coba scan WiFi lagi")
+
+def show_wifi_scan_troubleshooting():
+    """Tampilkan troubleshooting untuk WiFi scan"""
+    print("\n" + "=" * 60)
+    print("🔧 WIFI SCAN TROUBLESHOOTING")
+    print("=" * 60)
+    
+    print("\n📋 PERIKSA HAL BERIKUT:")
+    print("1. ✅ Pastikan WiFi Android aktif")
+    print("2. ✅ Pastikan Location Services aktif")
+    print("3. ✅ Berikan izin Location ke Termux")
+    print("4. ✅ Install termux-api package")
+    print("5. ✅ Install wireless-tools")
+    print("6. ✅ Update Termux dan packages")
+    
+    print("\n🛠️  SOLUSI OTOMATIS:")
+    
+    solutions = [
+        "Aktifkan Location: Settings → Location → ON",
+        "Berikan izin Location ke Termux:",
+        "  - Settings → Apps → Termux → Permissions → Location",
+        "  - Atau buka Termux dan ketik: termux-location",
+        "",
+        "Auto install Termux-API:",
+        "  Program akan mencoba install otomatis",
+        "  Jika gagal, akan download APK manual",
+        "",
+        "Test permission location:",
+        "  termux-location",
+    ]
+    
+    for solution in solutions:
+        print(f"  {solution}")
+    
+    print("\n💡 CATATAN:")
+    print("- Android 10+ butuh Location permission untuk WiFi scan")
+    print("- Beberapa device butuh GPS aktif untuk scan WiFi")
+    print("- Termux-API perlu diinstall sebagai APK terpisah")
+    
+    log_message("WiFi scan troubleshooting displayed")
+    
+    # Tanya user apakah mau coba install requirements
+    choice = input("\n🚀 Mau install Termux-API & wireless-tools sekarang? (y/n): ").lower()
+    if choice == 'y':
+        install_termux_api_fix()
+
 def check_wifi_permissions():
     """Cek status permissions WiFi dan requirements"""
     print("\n🔍 CHECKING WIFI PERMISSIONS & REQUIREMENTS")
@@ -1792,12 +1865,17 @@ def wifi_security_audit():
 
 # Tambahkan menu ini ke main program utama
 def main():
+def main():
     """Menu utama program yang diperbarui"""
     setup_logging()
+    log_message("Program started")
     
     while True:
         clear_screen()
         display_header()
+        
+        req_status = "✅" if REQUESTS_AVAILABLE else "❌"
+        speed_status = "✅" if SPEEDTEST_AVAILABLE else "❌"
         
         print("\n📋 ADVANCED MAIN MENU:")
         print("1. 🔗 Website Checker")
@@ -1808,8 +1886,12 @@ def main():
         print("6. 🚀 System Setup & Requirements")
         print("7. 🚪 Exit")
         
+        print(f"\nStatus: requests {req_status} | speedtest {speed_status}")
+        print(f"Logs: {LOG_FILE}")
+        
         try:
             choice = input("\nSelect option (1-7): ").strip()
+            log_message(f"User selected menu: {choice}")
             
             if choice == "1":
                 website_checker()
@@ -1825,9 +1907,16 @@ def main():
                 system_setup_requirements()
             elif choice == "7":
                 print("\n👋 Thank you for using the program!")
+                log_message("Program exited")
                 break
             else:
-                print("❌ Invalid selection")
+                print("\n❌ Invalid selection!")
+                
+        except KeyboardInterrupt:
+            print("\n\n⚠️  Returning to main menu...")
+            continue
+        
+        input("\nPress Enter to continue...")
                 
             
 if __name__ == "__main__":
