@@ -1124,8 +1124,6 @@ def desktop_wifi_check():
     else:
         print("❌ Pilihan tidak valid!")
 
-def main():
-
 def setup_wifi_cracking():
     """Setup environment untuk WiFi cracking"""
     print("\n🔧 SETUP WIFI CRACKING ENVIRONMENT")
